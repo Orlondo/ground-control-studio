@@ -21,8 +21,8 @@ description: "Task list for OpenAI Image Provider Integration"
 
 **Purpose**: Install the new dependency and prepare the environment configuration.
 
-- [ ] T001 Install `openai` npm package: `npm install openai` and verify it appears in `package.json` `dependencies`
-- [ ] T002 [P] Create `.env.local` at repository root with `OPENAI_API_KEY=sk-...your-key-here...` placeholder (file is already `.gitignore`d — do not commit a real key)
+- [X] T001 Install `openai` npm package: `npm install openai` and verify it appears in `package.json` `dependencies`
+- [X] T002 [P] Create `.env.local` at repository root with `OPENAI_API_KEY=sk-...your-key-here...` placeholder (file is already `.gitignore`d — do not commit a real key)
 
 **Checkpoint**: `openai` in `node_modules`; `.env.local` present with placeholder key.
 
@@ -34,7 +34,7 @@ description: "Task list for OpenAI Image Provider Integration"
 
 **⚠️ CRITICAL**: Must be complete before Phase 3 — the new provider returns `"image/png"` / `"png"` which the current literal types reject.
 
-- [ ] T003 Widen the `ok: true` branch of `ProviderGenerationResult` in `lib/assets/provider-adapter.ts`: change `mimeType: "image/svg+xml"` → `mimeType: string` and `extension: "svg"` → `extension: string`
+- [X] T003 Widen the `ok: true` branch of `ProviderGenerationResult` in `lib/assets/provider-adapter.ts`: change `mimeType: "image/svg+xml"` → `mimeType: string` and `extension: "svg"` → `extension: string`
 
 **Checkpoint**: TypeScript accepts `mimeType: "image/png"` and `extension: "png"` at the type level — run `npm run build` to confirm no type errors before proceeding.
 
@@ -48,14 +48,14 @@ description: "Task list for OpenAI Image Provider Integration"
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Implement `OpenAIImageProvider` class in `lib/assets/provider-adapter.ts`:
+- [X] T004 [US1] Implement `OpenAIImageProvider` class in `lib/assets/provider-adapter.ts`:
   - Constructor reads `process.env.OPENAI_API_KEY`; throws immediately if absent (hard startup failure per FR-004)
   - `generateImage()` calls OpenAI Images API with `model: "gpt-image-2"`, `response_format: "b64_json"`
   - Decodes the `b64_json` string to a `Buffer` and returns `{ ok: true, bytes, mimeType: "image/png", extension: "png" }`
   - On primary model failure, retries once with `model: "gpt-image-1"` before recording a failure (FR-003)
   - Maps OpenAI error types to internal error codes (auth → `AUTH_FAILURE`, content policy → `PROMPT_REJECTED`, rate limit → `RATE_LIMITED`, other → `PROVIDER_ERROR`) — no raw provider messages in results (FR-006)
 
-- [ ] T005 [US1] Wire provider selection into the singleton factory in `lib/assets/generation-service.ts`:
+- [X] T005 [US1] Wire provider selection into the singleton factory in `lib/assets/generation-service.ts`:
   - Import `OpenAIImageProvider` alongside `LocalDeterministicImageProvider`
   - In `getEpisodeAssetGenerationService()`: use `OpenAIImageProvider` when `process.env.OPENAI_API_KEY` is set, otherwise fall back to `LocalDeterministicImageProvider`
 
@@ -87,9 +87,9 @@ description: "Task list for OpenAI Image Provider Integration"
 
 **Purpose**: Confirm the implementation passes all quality gates and quickstart instructions are accurate.
 
-- [ ] T006 [P] Update `specs/003-openai-image-provider/quickstart.md` Step 2 env-var instructions to reflect the actual `.env.local` format (already drafted in quickstart.md — confirm it matches the implemented provider construction behavior)
-- [ ] T007 Run `npm run lint` and fix any lint errors
-- [ ] T008 Run `npm run build` and confirm zero TypeScript or build errors
+- [X] T006 [P] Update `specs/003-openai-image-provider/quickstart.md` Step 2 env-var instructions to reflect the actual `.env.local` format (already drafted in quickstart.md — confirm it matches the implemented provider construction behavior)
+- [X] T007 Run `npm run lint` and fix any lint errors
+- [X] T008 Run `npm run build` and confirm zero TypeScript or build errors
 
 **Checkpoint**: All quality gates pass. Feature is ready for human review before merge.
 

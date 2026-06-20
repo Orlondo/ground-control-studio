@@ -11,8 +11,8 @@ export type ProviderGenerationResult =
 	| {
 		ok: true;
 		bytes: Buffer;
-		mimeType: "image/svg+xml";
-		extension: "svg";
+		mimeType: string;
+		extension: string;
 	}
 	| {
 		ok: false;
@@ -64,6 +64,124 @@ function buildSvg(request: ProviderGenerationRequest): string {
     </div>
   </foreignObject>
 </svg>`;
+}
+
+const PRIMARY_MODEL = "gpt-image-2";
+const FALLBACK_MODEL = "gpt-image-1";
+const MAX_RETRIES = 5;
+const MAX_RETRY_DELAY_MS = 30_000;
+
+type OpenAIErrorBody = { error?: { message?: string; code?: string; type?: string } };
+
+function mapOpenAIError(status: number, body: OpenAIErrorBody): ProviderGenerationResult {
+	const code = body.error?.code ?? "";
+	const type = body.error?.type ?? "";
+
+	if (status === 401 || code === "invalid_api_key" || type === "invalid_request_error") {
+		return { ok: false, errorCode: "AUTH_FAILURE", errorReason: "OpenAI authentication failed — check OPENAI_API_KEY." };
+	}
+
+	if (code === "content_policy_violation" || type === "image_generation_user_error") {
+		return { ok: false, errorCode: "PROMPT_REJECTED", errorReason: "Prompt rejected by OpenAI content policy." };
+	}
+
+	if (status === 429) {
+		return { ok: false, errorCode: "RATE_LIMITED", errorReason: "OpenAI rate limit reached." };
+	}
+
+	return { ok: false, errorCode: "PROVIDER_ERROR", errorReason: "Image generation failed." };
+}
+
+function isRateLimitStatus(status: number): boolean {
+	return status === 429;
+}
+
+function retryDelayMs(attempt: number): number {
+	const base = Math.min(Math.pow(2, attempt) * 1000, MAX_RETRY_DELAY_MS);
+	const jitter = base * 0.1 * (Math.random() * 2 - 1);
+	return Math.round(base + jitter);
+}
+
+async function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type ImageGenerationResponse = { data?: Array<{ b64_json?: string | null }> };
+
+async function callOpenAI(
+	apiKey: string,
+	model: string,
+	prompt: string,
+): Promise<{ ok: true; bytes: Buffer } | ProviderGenerationResult & { ok: false }> {
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+		const response = await fetch("https://api.openai.com/v1/images/generations", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify({ model, prompt, response_format: "b64_json", n: 1 }),
+		});
+
+		const text = await response.text();
+
+		if (!response.ok) {
+			let body: OpenAIErrorBody = {};
+			try { body = JSON.parse(text) as OpenAIErrorBody; } catch { /* ignore */ }
+
+			if (isRateLimitStatus(response.status) && attempt < MAX_RETRIES) {
+				await sleep(retryDelayMs(attempt));
+				continue;
+			}
+
+			return mapOpenAIError(response.status, body);
+		}
+
+		let parsed: ImageGenerationResponse = {};
+		try { parsed = JSON.parse(text) as ImageGenerationResponse; } catch { /* ignore */ }
+
+		const b64 = parsed.data?.[0]?.b64_json;
+		if (!b64) {
+			return { ok: false, errorCode: "PROVIDER_ERROR", errorReason: "Empty image response from OpenAI." };
+		}
+
+		return { ok: true, bytes: Buffer.from(b64, "base64") };
+	}
+
+	return { ok: false, errorCode: "RATE_LIMITED", errorReason: "OpenAI rate limit reached after retries." };
+}
+
+export class OpenAIImageProvider implements ImageProviderAdapter {
+	private readonly apiKey: string;
+
+	constructor() {
+		const key = process.env.OPENAI_API_KEY;
+		if (!key) {
+			throw new Error("OPENAI_API_KEY is not set — cannot initialise OpenAIImageProvider.");
+		}
+		this.apiKey = key;
+	}
+
+	async generateImage(
+		request: ProviderGenerationRequest,
+	): Promise<ProviderGenerationResult> {
+		const primary = await callOpenAI(this.apiKey, PRIMARY_MODEL, request.promptText);
+
+		if (primary.ok) {
+			return { ok: true, bytes: primary.bytes, mimeType: "image/png", extension: "png" };
+		}
+
+		// Retry with fallback model on model/size errors only
+		if (primary.errorCode === "PROVIDER_ERROR") {
+			const fallback = await callOpenAI(this.apiKey, FALLBACK_MODEL, request.promptText);
+			if (fallback.ok) {
+				return { ok: true, bytes: fallback.bytes, mimeType: "image/png", extension: "png" };
+			}
+			return fallback;
+		}
+
+		return primary;
+	}
 }
 
 export class LocalDeterministicImageProvider implements ImageProviderAdapter {

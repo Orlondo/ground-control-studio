@@ -9,6 +9,7 @@ import type {
 import { deriveTerminalStatus, toRetrievalResult, type RetrievalResult } from "./contracts";
 import {
 	LocalDeterministicImageProvider,
+	OpenAIImageProvider,
 	type ImageProviderAdapter,
 } from "./provider-adapter";
 import { FileAssetRepository, type AssetRepository } from "./repository";
@@ -186,11 +187,18 @@ export class EpisodeAssetGenerationService {
 
 let serviceInstance: EpisodeAssetGenerationService | null = null;
 
+function createProvider(): ImageProviderAdapter {
+	if (process.env.OPENAI_API_KEY) {
+		return new OpenAIImageProvider();
+	}
+	return new LocalDeterministicImageProvider();
+}
+
 export function getEpisodeAssetGenerationService(): EpisodeAssetGenerationService {
 	if (!serviceInstance) {
 		serviceInstance = new EpisodeAssetGenerationService(
 			new FileAssetRepository(),
-			new LocalDeterministicImageProvider(),
+			createProvider(),
 			new PublicFileStorageAdapter(),
 		);
 	}
