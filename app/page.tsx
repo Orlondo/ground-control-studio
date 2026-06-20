@@ -1,8 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { generateEpisodePackage } from "@/lib/episode/generator";
 import type { EpisodeGenerationResult } from "@/lib/episode/types";
+import type {
+	AssetGenerationResult,
+	ImageAssetRecord,
+	RetrievalResult,
+} from "@/lib/assets/contracts";
 
 type EpisodeBriefForm = {
 	location: string;
@@ -30,6 +36,95 @@ function ResultPanel({
 			</h3>
 			<div className="mt-4 text-sm leading-7 text-slate-100/92">{children}</div>
 		</section>
+	);
+}
+
+function AssetStatusPill({ status }: Readonly<{ status: "success" | "failure" }>) {
+	return (
+		<span
+			className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+				status === "success"
+					? "border border-emerald-300/30 bg-emerald-300/20 text-emerald-100"
+					: "border border-rose-300/30 bg-rose-300/20 text-rose-100"
+			}`}
+		>
+			{status}
+		</span>
+	);
+}
+
+function formatAssets(assets: ImageAssetRecord[]): ReactNode {
+	if (assets.length === 0) {
+		return <p className="text-sm text-slate-300">No image asset attempts are available yet.</p>;
+	}
+
+	return (
+		<div className="grid gap-4 md:grid-cols-2">
+			{assets.map((asset) => (
+				<article
+					key={asset.assetId}
+					className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4"
+				>
+					<div className="flex items-center justify-between gap-2">
+						<p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100/80">
+							{asset.assetType}
+						</p>
+						<AssetStatusPill status={asset.status} />
+					</div>
+
+					{asset.status === "success" && asset.reference ? (
+						<div className="space-y-2">
+							<Image
+								src={asset.reference.viewUrl}
+								alt={`${asset.assetType} asset preview`}
+								width={640}
+								height={360}
+								className="h-auto w-full rounded-xl border border-white/10"
+								unoptimized
+							/>
+							<div className="flex gap-2 text-xs font-medium">
+								<a
+									href={asset.reference.viewUrl}
+									target="_blank"
+									rel="noreferrer"
+									className="rounded-full border border-white/20 px-3 py-1 text-cyan-100 hover:bg-white/10"
+								>
+									View
+								</a>
+								<a
+									href={asset.reference.downloadUrl}
+									target="_blank"
+									rel="noreferrer"
+									className="rounded-full border border-white/20 px-3 py-1 text-cyan-100 hover:bg-white/10"
+								>
+									Download
+								</a>
+							</div>
+						</div>
+					) : (
+						<p className="rounded-xl border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
+							{asset.errorReason ?? "Asset generation failed."}
+						</p>
+					)}
+
+					<div className="space-y-1 text-xs text-slate-300">
+						<p>
+							<b>Asset ID:</b> {asset.assetId}
+						</p>
+						<p>
+							<b>Episode Package ID:</b> {asset.episodePackageId}
+						</p>
+						<p>
+							<b>Normalized Key:</b> {asset.normalizedKey}
+						</p>
+						<p>
+							<b>Prompt Ref:</b> {asset.promptRef.kind}
+							{typeof asset.promptRef.index === "number" ? ` (${asset.promptRef.index})` : ""}
+						</p>
+					</div>
+				</article>
+			))}
+		</div>
 	);
 }
 
@@ -133,13 +228,98 @@ function formatResult(result: EpisodeGenerationResult): ReactNode {
 export default function Home() {
 	const [form, setForm] = useState<EpisodeBriefForm>(initialForm);
 	const [result, setResult] = useState<EpisodeGenerationResult | null>(null);
+	const [assetGenerationResult, setAssetGenerationResult] =
+		useState<AssetGenerationResult | null>(null);
+	const [retrievalResult, setRetrievalResult] = useState<RetrievalResult | null>(null);
+	const [retrievalKey, setRetrievalKey] = useState("");
+	const [isGeneratingAssets, setIsGeneratingAssets] = useState(false);
+	const [isRetrievingAssets, setIsRetrievingAssets] = useState(false);
+	const [assetError, setAssetError] = useState<string | null>(null);
 
 	const canSubmit =
 		form.location.trim() !== "" && form.era.trim() !== "" && form.atmosphere.trim() !== "";
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		setAssetGenerationResult(null);
+		setRetrievalResult(null);
+		setAssetError(null);
 		setResult(generateEpisodePackage(form));
+	}
+
+	async function handleGenerateAssets() {
+		if (!result || result.status !== "complete") {
+			return;
+		}
+
+		const normalizedKey = result.package.brief.normalizedKey;
+		setIsGeneratingAssets(true);
+		setAssetError(null);
+
+		try {
+			const response = await fetch(
+				`/api/episodes/${encodeURIComponent(normalizedKey)}/assets/images/generate`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						episodePackageId: `${normalizedKey}-package`,
+						assetScope: {
+							includeThumbnail: true,
+							sceneIndexes: "all",
+						},
+						package: result.package,
+					}),
+				},
+			);
+
+			const data = (await response.json()) as
+				| AssetGenerationResult
+				| { message?: string };
+
+			if (!response.ok) {
+				const message = "message" in data ? data.message : undefined;
+				setAssetError(message ?? "Image generation request failed.");
+				return;
+			}
+
+			setAssetGenerationResult(data as AssetGenerationResult);
+			setRetrievalKey(normalizedKey);
+		} catch {
+			setAssetError("Image generation request failed.");
+		} finally {
+			setIsGeneratingAssets(false);
+		}
+	}
+
+	async function handleRetrieveAssets() {
+		const key = retrievalKey.trim();
+		if (!key) {
+			setAssetError("Provide a normalized key to load assets.");
+			return;
+		}
+
+		setIsRetrievingAssets(true);
+		setAssetError(null);
+
+		try {
+			const response = await fetch(`/api/episodes/${encodeURIComponent(key)}/assets/images`);
+			const data = (await response.json()) as RetrievalResult | { message?: string };
+
+			if (!response.ok) {
+				const message = "message" in data ? data.message : undefined;
+				setAssetError(message ?? "Unable to retrieve assets for this normalized key.");
+				return;
+			}
+
+			setRetrievalResult(data as RetrievalResult);
+		} catch {
+			setAssetError("Unable to retrieve assets for this normalized key.");
+		} finally {
+			setIsRetrievingAssets(false);
+		}
 	}
 
 	return (
@@ -241,7 +421,7 @@ export default function Home() {
 							<h2 className="mt-2 text-2xl font-semibold text-white">Package Review</h2>
 						</div>
 						<p className="max-w-md text-right text-sm leading-6 text-slate-300">
-							The output stays text-only and deterministic so you can compare, revise, and plan without extra workflow steps. Scope lock: no auth, database, publishing, image generation, or voice generation.
+							Phase 1 keeps deterministic package generation while Phase 2 adds scoped image assets only (thumbnail + scene images) with traceable records.
 						</p>
 					</div>
 
@@ -258,6 +438,98 @@ export default function Home() {
 							</div>
 						)}
 					</div>
+
+					<div className="mt-8 grid gap-4 rounded-3xl border border-cyan-300/20 bg-cyan-300/10 p-5 md:grid-cols-[1fr_auto]">
+						<div>
+							<p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-100/80">
+								Phase 2 Asset Generation
+							</p>
+							<p className="mt-2 text-sm text-slate-200">
+								Generate image assets from the current EpisodePackage or retrieve previous records by normalized key.
+							</p>
+							<div className="mt-4 flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									onClick={handleGenerateAssets}
+									disabled={isGeneratingAssets || !result || result.status !== "complete"}
+									className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+								>
+									{isGeneratingAssets ? "Generating Images..." : "Generate Image Assets"}
+								</button>
+
+								<input
+									value={retrievalKey}
+									onChange={(event) => setRetrievalKey(event.target.value)}
+									placeholder="normalized-key"
+									className="min-w-56 rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/20"
+								/>
+								<button
+									type="button"
+									onClick={handleRetrieveAssets}
+									disabled={isRetrievingAssets}
+									className="rounded-2xl border border-white/20 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-slate-500"
+								>
+									{isRetrievingAssets ? "Loading..." : "Retrieve Assets"}
+								</button>
+							</div>
+						</div>
+
+						{assetGenerationResult ? (
+							<div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs text-slate-200">
+								<p>
+									<b>Request:</b> {assetGenerationResult.requestId}
+								</p>
+								<p>
+									<b>Status:</b> {assetGenerationResult.status}
+								</p>
+								<p>
+									<b>Succeeded:</b> {assetGenerationResult.succeededCount}
+								</p>
+								<p>
+									<b>Failed:</b> {assetGenerationResult.failedCount}
+								</p>
+								<p>
+									<b>Normalized Key:</b> {assetGenerationResult.normalizedKey}
+								</p>
+							</div>
+						) : (
+							<div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-4 text-xs text-slate-300">
+								Asset status will appear here after generation.
+							</div>
+						)}
+					</div>
+
+					{assetError ? (
+						<p className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
+							{assetError}
+						</p>
+					) : null}
+
+					{assetGenerationResult ? (
+						<div className="mt-6">
+							<ResultPanel title="Generation Asset Records">
+								{formatAssets(assetGenerationResult.assets)}
+							</ResultPanel>
+						</div>
+					) : null}
+
+					{retrievalResult ? (
+						<div className="mt-6 space-y-4">
+							<ResultPanel title="Retrieved Asset Records">
+								<div className="space-y-3 text-xs text-slate-200">
+									<p>
+										<b>Normalized Key:</b> {retrievalResult.normalizedKey}
+									</p>
+									<p>
+										<b>Total:</b> {retrievalResult.totals.total} | <b>Success:</b>{" "}
+										{retrievalResult.totals.success} | <b>Failure:</b>{" "}
+										{retrievalResult.totals.failure}
+									</p>
+								</div>
+								{formatAssets(retrievalResult.assets)}
+							</ResultPanel>
+						</div>
+					) : null}
 				</section>
 			</div>
 		</main>

@@ -39,6 +39,39 @@ curl -X POST http://localhost:3000/api/episodes/{normalizedKey}/assets/images/ge
   -d @payload.json
 ```
 
+Example payload template:
+
+```json
+{
+  "episodePackageId": "{normalizedKey}-package",
+  "assetScope": {
+    "includeThumbnail": true,
+    "sceneIndexes": "all"
+  },
+  "package": {
+    "brief": {
+      "location": "Abandoned Lunar Archive",
+      "era": "Future Noir",
+      "atmosphere": "Quiet Haunted Reflective",
+      "normalizedKey": "{normalizedKey}"
+    },
+    "title": "Future Noir Echoes",
+    "script": "...",
+    "scenePrompts": [
+      { "order": 1, "prompt": "Scene one prompt" },
+      { "order": 2, "prompt": "Scene two prompt" }
+    ],
+    "thumbnailPrompt": "Cinematic thumbnail prompt",
+    "shortFormClipIdeas": [
+      { "order": 1, "idea": "Clip idea one" }
+    ],
+    "description": "Episode description",
+    "tags": ["episode-planning"],
+    "generatorVersion": "1.0.0"
+  }
+}
+```
+
 3. Verify response fields:
 - `status` is `success` when all assets succeed.
 - `succeededCount` equals expected asset total.
@@ -50,7 +83,7 @@ Expected result:
 
 ## Validation Scenario B: Partial-success behavior
 
-1. Submit a request where at least one prompt is expected to fail (invalid/unsafe prompt) and one prompt remains valid.
+1. Submit a request where at least one prompt includes one of: `unsafe`, `invalid`, `reject`, `fail`, `error` and one prompt remains valid.
 2. Inspect response:
 - Request-level `status` is `partial-success`.
 - `succeededCount` and `failedCount` are both greater than zero.
@@ -80,7 +113,7 @@ Expected result:
 ## Validation Scenario D: Duplicate in-progress request guard
 
 1. Trigger two generation requests for the same normalizedKey concurrently.
-2. Verify one request is accepted and the duplicate receives conflict semantics.
+2. Verify one request is accepted and the duplicate receives `409 REQUEST_IN_PROGRESS`.
 
 Expected result:
 - System prevents ambiguous duplicate in-progress runs.

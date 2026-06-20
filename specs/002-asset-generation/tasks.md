@@ -11,11 +11,11 @@
 
 **Purpose**: Create core files and module boundaries for image asset generation.
 
-- [ ] T001 Create asset domain contracts module in lib/assets/contracts.ts
-- [ ] T002 Create provider adapter interface for prompt-to-image generation in lib/assets/provider-adapter.ts
-- [ ] T003 [P] Create storage adapter interface for persisted image references in lib/assets/storage-adapter.ts
-- [ ] T004 [P] Create repository module for generation requests and asset records in lib/assets/repository.ts
-- [ ] T005 [P] Add generated asset root placeholder for tracked storage path in public/generated-assets/.gitkeep
+- [X] T001 Create asset domain contracts module in lib/assets/contracts.ts
+- [X] T002 Create provider adapter interface for prompt-to-image generation in lib/assets/provider-adapter.ts
+- [X] T003 [P] Create storage adapter interface for persisted image references in lib/assets/storage-adapter.ts
+- [X] T004 [P] Create repository module for generation requests and asset records in lib/assets/repository.ts
+- [X] T005 [P] Add generated asset root placeholder for tracked storage path in public/generated-assets/.gitkeep
 
 ---
 
@@ -25,12 +25,12 @@
 
 **CRITICAL**: Complete this phase before implementing user stories.
 
-- [ ] T006 Implement runtime request/result validators and status helpers in lib/assets/contracts.ts
-- [ ] T007 Implement file-backed persistence for EpisodeAssetGenerationRequest records in lib/assets/repository.ts
-- [ ] T008 [P] Implement file-backed persistence for ImageAssetRecord entries in lib/assets/repository.ts
-- [ ] T009 [P] Implement local provider adapter with deterministic success/failure mapping in lib/assets/provider-adapter.ts
-- [ ] T010 [P] Implement storage adapter for writing files and building view/download URLs in lib/assets/storage-adapter.ts
-- [ ] T011 Implement generation orchestration service for thumbnail and scene attempts in lib/assets/generation-service.ts
+- [X] T006 Implement runtime request/result validators and status helpers in lib/assets/contracts.ts
+- [X] T007 Implement file-backed persistence for EpisodeAssetGenerationRequest records in lib/assets/repository.ts
+- [X] T008 [P] Implement file-backed persistence for ImageAssetRecord entries in lib/assets/repository.ts
+- [X] T009 [P] Implement local provider adapter with deterministic success/failure mapping in lib/assets/provider-adapter.ts
+- [X] T010 [P] Implement storage adapter for writing files and building view/download URLs in lib/assets/storage-adapter.ts
+- [X] T011 Implement generation orchestration service for thumbnail and scene attempts in lib/assets/generation-service.ts
 
 **Checkpoint**: Foundation complete; user stories can now be implemented.
 
@@ -44,11 +44,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement generation POST route request validation and service wiring in app/api/episodes/[normalizedKey]/assets/images/generate/route.ts
-- [ ] T013 [US1] Map successful generation output to contract-compliant API response in app/api/episodes/[normalizedKey]/assets/images/generate/route.ts
-- [ ] T014 [P] [US1] Add client action to submit EpisodePackage image generation requests in app/page.tsx
-- [ ] T015 [US1] Render generated thumbnail and scene assets with view/download links in app/page.tsx
-- [ ] T016 [US1] Include normalizedKey and episodePackageId traceability fields in UI result panels in app/page.tsx
+- [X] T012 [US1] Implement generation POST route request validation and service wiring in app/api/episodes/[normalizedKey]/assets/images/generate/route.ts
+- [X] T013 [US1] Map successful generation output to contract-compliant API response in app/api/episodes/[normalizedKey]/assets/images/generate/route.ts
+- [X] T014 [P] [US1] Add client action to submit EpisodePackage image generation requests in app/page.tsx
+- [X] T015 [US1] Render generated thumbnail and scene assets with view/download links in app/page.tsx
+- [X] T016 [US1] Include normalizedKey and episodePackageId traceability fields in UI result panels in app/page.tsx
 
 **Checkpoint**: User Story 1 is independently functional and demoable (MVP).
 
@@ -62,10 +62,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Implement request-level success/partial-success/failure aggregation logic in lib/assets/generation-service.ts
-- [ ] T018 [US2] Persist failure records with errorReason and prompt linkage in lib/assets/repository.ts
-- [ ] T019 [US2] Return partial-success status and mixed asset outcomes from POST route in app/api/episodes/[normalizedKey]/assets/images/generate/route.ts
-- [ ] T020 [P] [US2] Render succeededCount, failedCount, and per-asset error messages in app/page.tsx
+- [X] T017 [US2] Implement request-level success/partial-success/failure aggregation logic in lib/assets/generation-service.ts
+- [X] T018 [US2] Persist failure records with errorReason and prompt linkage in lib/assets/repository.ts
+- [X] T019 [US2] Return partial-success status and mixed asset outcomes from POST route in app/api/episodes/[normalizedKey]/assets/images/generate/route.ts
+- [X] T020 [P] [US2] Render succeededCount, failedCount, and per-asset error messages in app/page.tsx
 
 **Checkpoint**: User Story 2 mixed-outcome behavior is independently verifiable.
 
@@ -79,10 +79,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Implement repository query for all requests and asset records by normalizedKey in lib/assets/repository.ts
-- [ ] T022 [US3] Implement GET retrieval route returning RetrievalResult payload in app/api/episodes/[normalizedKey]/assets/images/route.ts
-- [ ] T023 [P] [US3] Add client retrieval action to load existing assets by normalizedKey in app/page.tsx
-- [ ] T024 [US3] Render retrieval metadata for thumbnail/scene type and status in app/page.tsx
+- [X] T021 [US3] Implement repository query for all requests and asset records by normalizedKey in lib/assets/repository.ts
+- [X] T022 [US3] Implement GET retrieval route returning RetrievalResult payload in app/api/episodes/[normalizedKey]/assets/images/route.ts
+- [X] T023 [P] [US3] Add client retrieval action to load existing assets by normalizedKey in app/page.tsx
+- [X] T024 [US3] Render retrieval metadata for thumbnail/scene type and status in app/page.tsx
 
 **Checkpoint**: User Story 3 retrieval flow is independently functional.
 
@@ -92,10 +92,10 @@
 
 **Purpose**: Finalize documentation, validation, and phase-scope checks.
 
-- [ ] T025 [P] Align quickstart payloads and endpoint examples with implemented routes in specs/002-asset-generation/quickstart.md
-- [ ] T026 [P] Document Phase 2 image generation and retrieval usage in README.md
-- [ ] T027 Add implementation notes and requirement traceability updates in specs/002-asset-generation/plan.md
-- [ ] T028 Execute lint/build quality gates and record completion in specs/002-asset-generation/tasks.md
+- [X] T025 [P] Align quickstart payloads and endpoint examples with implemented routes in specs/002-asset-generation/quickstart.md
+- [X] T026 [P] Document Phase 2 image generation and retrieval usage in README.md
+- [X] T027 Add implementation notes and requirement traceability updates in specs/002-asset-generation/plan.md
+- [X] T028 Execute lint/build quality gates and record completion in specs/002-asset-generation/tasks.md
 
 ---
 

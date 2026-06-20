@@ -93,3 +93,23 @@ public/
 ## Complexity Tracking
 
 No constitutional violations identified. Complexity exceptions are not required for this phase.
+
+## Implementation Notes
+
+- Added API routes:
+  - `POST /api/episodes/{normalizedKey}/assets/images/generate`
+  - `GET /api/episodes/{normalizedKey}/assets/images`
+- Added `lib/assets/` modules for contracts, provider, storage, repository, and orchestration service.
+- Provider behavior is deterministic and local for this phase, with prompt-keyword failure simulation to support partial-success validation.
+- Successful images are persisted in `public/generated-assets/{normalizedKey}/` and returned with view/download URLs.
+- Request and asset records are persisted as file-backed JSON under `.specify/runtime/assets/`.
+
+## Requirement Traceability
+
+- FR-001, FR-006: Request payload and persisted records include `episodePackageId` and `normalizedKey` linkage.
+- FR-002, FR-003: Generation service creates one thumbnail (when enabled) and one attempt per selected scene prompt.
+- FR-004, FR-008: Repository writes one `ImageAssetRecord` per attempt with status, prompt linkage, and failure reason when applicable.
+- FR-005, FR-009: Successful asset records include `viewUrl` and `downloadUrl`; successful outputs are preserved during partial failures.
+- FR-007: Request-level terminal status uses `success`, `partial-success`, and `failure` aggregation.
+- FR-010: Retrieval API returns records and request summaries by `normalizedKey`.
+- FR-011, FR-012: Implementation remains scoped to still-image generation, storage, and delivery only.

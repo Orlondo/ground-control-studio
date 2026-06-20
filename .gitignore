@@ -22,6 +22,10 @@
 
 # misc
 .DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.idea/
 *.pem
 
 # debug
@@ -32,6 +36,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+
+# local runtime state
+.specify/runtime/
 
 # vercel
 .vercel
