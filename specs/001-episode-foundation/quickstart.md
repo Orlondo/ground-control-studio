@@ -20,6 +20,10 @@ npm run dev
 Expected result:
 - A single coherent episode concept appears with a title, script, scene prompts, thumbnail prompt, short-form clip ideas, description, and tags.
 
+Validation expectations:
+- The result includes the canonical traceability block (Location, Era, Atmosphere, Normalized Key).
+- Missing or empty input values produce a clear needs-input state instead of inferred content.
+
 ## Determinism check
 
 1. Submit the same brief twice without changing the inputs.
@@ -29,6 +33,10 @@ Expected result:
 Expected result:
 - The same normalized brief produces the same EpisodePackage content under the same conditions.
 
+Validation expectations:
+- Normalized Key remains identical across repeated submissions with casing/spacing/punctuation differences.
+- Generator version remains stable for the same implementation revision.
+
 ## Scope check
 
 1. Review the interface and the generated output.
@@ -37,6 +45,10 @@ Expected result:
 
 Expected result:
 - Phase 1 stays limited to episode planning and review.
+
+Validation expectations:
+- UI copy explicitly states Phase 1 planning-only boundaries.
+- No generated output includes account, persistence, publishing, image-generation, or voice-generation workflow instructions.
 
 ## Validation commands
 

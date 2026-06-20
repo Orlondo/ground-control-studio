@@ -117,6 +117,9 @@ function formatResult(result: EpisodeGenerationResult): ReactNode {
 						<p>
 							<b>Atmosphere:</b> {episodePackage.brief.atmosphere}
 						</p>
+						<p>
+							<b>Normalized Key:</b> {episodePackage.brief.normalizedKey}
+						</p>
 						<p className="text-xs uppercase tracking-[0.22em] text-cyan-100/70">
 							Generator v{episodePackage.generatorVersion}
 						</p>
@@ -238,7 +241,7 @@ export default function Home() {
 							<h2 className="mt-2 text-2xl font-semibold text-white">Package Review</h2>
 						</div>
 						<p className="max-w-md text-right text-sm leading-6 text-slate-300">
-							The output stays text-only and deterministic so you can compare, revise, and plan without extra workflow steps.
+							The output stays text-only and deterministic so you can compare, revise, and plan without extra workflow steps. Scope lock: no auth, database, publishing, image generation, or voice generation.
 						</p>
 					</div>
 
@@ -249,6 +252,9 @@ export default function Home() {
 							<div className="rounded-3xl border border-dashed border-white/15 bg-white/5 px-6 py-10 text-center text-slate-300">
 								<p className="text-lg font-medium text-slate-100">Your episode package will appear here.</p>
 								<p className="mt-2 text-sm">Fill in the three inputs above and generate the first Phase 1 episode.</p>
+								<p className="mt-2 text-xs uppercase tracking-[0.18em] text-cyan-100/70">
+									Planning-only scope: no accounts, persistence, publishing, image generation, or voice generation.
+								</p>
 							</div>
 						)}
 					</div>

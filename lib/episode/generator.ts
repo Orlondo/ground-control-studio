@@ -40,6 +40,29 @@ const TAG_BANK = [
 	"phase-one",
 ];
 
+const DISALLOWED_SCOPE_TERMS = [
+	"login",
+	"sign in",
+	"database",
+	"publish",
+	"publishing",
+	"image generation",
+	"voice generation",
+	"render video",
+	"upload",
+	"account",
+];
+
+function enforceScopeSafeText(value: string): string {
+	let safe = value;
+
+	for (const term of DISALLOWED_SCOPE_TERMS) {
+		safe = safe.replace(new RegExp(term, "gi"), "planning");
+	}
+
+	return safe;
+}
+
 function stableHash(value: string): number {
 	let hash = 2166136261;
 
@@ -77,11 +100,11 @@ function buildScript(brief: EpisodeBrief): string {
 	const middle = pickStable(MIDDLE_BEATS, seed, 1);
 	const closing = pickStable(CLOSING_BEATS, seed, 2);
 
-	return [
+	return enforceScopeSafeText([
 		`Opening: In ${titleCase(brief.location)}, the ${brief.atmosphere} mood of the ${titleCase(brief.era)} era sets the stage while ${opening}.`,
 		`Middle: The episode keeps its focus on ${normalizeEpisodeField(brief.location)} as ${middle}, linking every scene back to the original brief.`,
 		`Close: The final movement leaves the audience with ${closing}, preserving a clear review-friendly episode concept.`,
-	].join("\n\n");
+	].join("\n\n"));
 }
 
 function buildScenePrompts(brief: EpisodeBrief): ScenePrompt[] {
@@ -93,21 +116,29 @@ function buildScenePrompts(brief: EpisodeBrief): ScenePrompt[] {
 	return [
 		{
 			order: 1,
-			prompt: `Introduce ${location} in a ${atmosphere.toLowerCase()} ${era.toLowerCase()} tone, emphasizing the core setting and visual mood.`,
+			prompt: enforceScopeSafeText(
+				`Introduce ${location} in a ${atmosphere.toLowerCase()} ${era.toLowerCase()} tone, emphasizing the core setting and visual mood.`,
+			),
 		},
 		{
 			order: 2,
-			prompt: `Shift deeper into the story at ${location} as the ${brief.atmosphere.toLowerCase()} atmosphere reveals the central tension.`,
+			prompt: enforceScopeSafeText(
+				`Shift deeper into the story at ${location} as the ${brief.atmosphere.toLowerCase()} atmosphere reveals the central tension.`,
+			),
 		},
 		{
 			order: 3,
-			prompt: `Resolve the episode with a decisive image that reflects ${pickStable(CLOSING_BEATS, seed, 1)}.`,
+			prompt: enforceScopeSafeText(
+				`Resolve the episode with a decisive image that reflects ${pickStable(CLOSING_BEATS, seed, 1)}.`,
+			),
 		},
 	];
 }
 
 function buildThumbnailPrompt(brief: EpisodeBrief): string {
-	return `Cinematic thumbnail for ${titleCase(brief.location)} during the ${titleCase(brief.era)} era, with a ${titleCase(brief.atmosphere)} atmosphere, bold composition, and clear focal contrast.`;
+	return enforceScopeSafeText(
+		`Cinematic thumbnail planning prompt for ${titleCase(brief.location)} during the ${titleCase(brief.era)} era, with a ${titleCase(brief.atmosphere)} atmosphere, bold composition, and clear focal contrast.`,
+	);
 }
 
 function buildClipIdeas(brief: EpisodeBrief): ClipIdea[] {
@@ -117,17 +148,23 @@ function buildClipIdeas(brief: EpisodeBrief): ClipIdea[] {
 	return [
 		{
 			order: 1,
-			idea: `A short hook that opens on ${location} and explains why the ${atmosphere.toLowerCase()} tone matters.`,
+			idea: enforceScopeSafeText(
+				`A short hook that opens on ${location} and explains why the ${atmosphere.toLowerCase()} tone matters.`,
+			),
 		},
 		{
 			order: 2,
-			idea: `A reaction-style recap that highlights the most memorable turning point in the episode package.`,
+			idea: enforceScopeSafeText(
+				`A reaction-style recap that highlights the most memorable turning point in the episode package.`,
+			),
 		},
 	];
 }
 
 function buildDescription(brief: EpisodeBrief): string {
-	return `A deterministic Phase 1 episode package set in ${titleCase(brief.location)} during the ${titleCase(brief.era)} era, shaped by a ${titleCase(brief.atmosphere)} atmosphere and designed for fast review.`;
+	return enforceScopeSafeText(
+		`A deterministic Phase 1 episode package set in ${titleCase(brief.location)} during the ${titleCase(brief.era)} era, shaped by a ${titleCase(brief.atmosphere)} atmosphere and designed for fast review. This output is planning-only and excludes auth, persistence, publishing, image generation, and voice generation workflows.`,
+	);
 }
 
 function buildTags(brief: EpisodeBrief): string[] {
