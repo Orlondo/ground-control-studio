@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Liminal Episode Studio
+
+Liminal Episode Studio is a Next.js + TypeScript project built with a Spec Kit workflow.
+
+- Phase 1: Deterministic EpisodePackage generation from `location`, `era`, and `atmosphere`.
+- Phase 2: Still-image asset generation and retrieval (thumbnail + scene images) with traceable records.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quality Gates
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run before merge:
 
-## Learn More
+```bash
+npm run lint
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Phase 2 Image Asset APIs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Generate image assets:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+POST /api/episodes/{normalizedKey}/assets/images/generate
+```
 
-## Deploy on Vercel
+Retrieve generated assets:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+GET /api/episodes/{normalizedKey}/assets/images
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Notes
+
+- Asset generation is intentionally local and deterministic for this phase.
+- Prompts containing `unsafe`, `invalid`, `reject`, `fail`, or `error` simulate provider failure to exercise partial-success handling.
+- Generated image files are written to `public/generated-assets/{normalizedKey}/`.
+- File-backed request and asset records are stored under `.specify/runtime/assets/`.
+
+## Spec Kit Workflow
+
+This repository uses Spec Kit as the default workflow:
+
+1. `constitution`
+2. `specify`
+3. `plan`
+4. `tasks`
+5. `implement`
+
+Specs for the current feature are under `specs/002-asset-generation/`.

@@ -1,0 +1,354 @@
+openapi: 3.1.0
+info:
+  title: Episode Image Assets API
+  version: 0.1.0
+  description: >-
+    Contracts for Phase 2 still-image generation and retrieval. Scope is limited
+    to thumbnail and scene image assets only.
+servers:
+  - url: /
+paths:
+  /api/episodes/{normalizedKey}/assets/images/generate:
+    post:
+      summary: Generate thumbnail and scene images for an episode package
+      operationId: generateEpisodeImageAssets
+      parameters:
+        - in: path
+          name: normalizedKey
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateImageAssetsRequest'
+      responses:
+        '200':
+          description: Generation completed with success or partial-success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetGenerationResult'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Source EpisodePackage not found for normalizedKey
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another generation request is already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Request failed with no successful assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetGenerationResult'
+  /api/episodes/{normalizedKey}/assets/images:
+    get:
+      summary: Retrieve generated image asset records and references by normalizedKey
+      operationId: listEpisodeImageAssets
+      parameters:
+        - in: path
+          name: normalizedKey
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asset records found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrievalResult'
+        '404':
+          description: No image assets found for normalizedKey
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    GenerateImageAssetsRequest:
+      type: object
+      required:
+        - episodePackageId
+        - package
+      properties:
+        episodePackageId:
+          type: string
+        requestId:
+          type: string
+          description: Optional client-supplied idempotency key
+        assetScope:
+          type: object
+          additionalProperties: false
+          properties:
+            includeThumbnail:
+              type: boolean
+              default: true
+            sceneIndexes:
+              oneOf:
+                - type: string
+                  enum: [all]
+                - type: array
+                  items:
+                    type: integer
+                    minimum: 0
+        package:
+          $ref: '#/components/schemas/EpisodePackage'
+
+    EpisodePackage:
+      type: object
+      required:
+        - brief
+        - title
+        - script
+        - scenePrompts
+        - thumbnailPrompt
+        - shortFormClipIdeas
+        - description
+        - tags
+        - generatorVersion
+      properties:
+        brief:
+          type: object
+          required: [location, era, atmosphere, normalizedKey]
+          properties:
+            location:
+              type: string
+            era:
+              type: string
+            atmosphere:
+              type: string
+            normalizedKey:
+              type: string
+        title:
+          type: string
+        script:
+          type: string
+        scenePrompts:
+          type: array
+          items:
+            type: object
+            required: [order, prompt]
+            properties:
+              order:
+                type: integer
+                minimum: 1
+              prompt:
+                type: string
+        thumbnailPrompt:
+          type: string
+        shortFormClipIdeas:
+          type: array
+          items:
+            type: object
+            required: [order, idea]
+            properties:
+              order:
+                type: integer
+                minimum: 1
+              idea:
+                type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        generatorVersion:
+          type: string
+
+    AssetGenerationResult:
+      type: object
+      required:
+        - requestId
+        - normalizedKey
+        - status
+        - succeededCount
+        - failedCount
+        - assets
+      properties:
+        requestId:
+          type: string
+        normalizedKey:
+          type: string
+        status:
+          type: string
+          enum: [success, partial-success, failure]
+        succeededCount:
+          type: integer
+          minimum: 0
+        failedCount:
+          type: integer
+          minimum: 0
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageAssetRecord'
+
+    ImageAssetRecord:
+      type: object
+      required:
+        - assetId
+        - requestId
+        - episodePackageId
+        - normalizedKey
+        - assetType
+        - promptRef
+        - promptText
+        - status
+        - createdAt
+      properties:
+        assetId:
+          type: string
+        requestId:
+          type: string
+        episodePackageId:
+          type: string
+        normalizedKey:
+          type: string
+        assetType:
+          type: string
+          enum: [thumbnail, scene]
+        sceneIndex:
+          type: integer
+          minimum: 0
+        promptRef:
+          type: object
+          required: [kind]
+          properties:
+            kind:
+              type: string
+              enum: [thumbnailPrompt, scenePrompt]
+            index:
+              type: integer
+              minimum: 0
+        promptText:
+          type: string
+        status:
+          type: string
+          enum: [success, failure]
+        errorCode:
+          type: string
+        errorReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        reference:
+          $ref: '#/components/schemas/ImageAssetReference'
+
+    ImageAssetReference:
+      type: object
+      required:
+        - viewUrl
+        - downloadUrl
+        - storageKey
+        - mimeType
+      properties:
+        viewUrl:
+          type: string
+        downloadUrl:
+          type: string
+        storageKey:
+          type: string
+        mimeType:
+          type: string
+        byteSize:
+          type: integer
+          minimum: 0
+        availableUntil:
+          type: string
+          format: date-time
+
+    RetrievalResult:
+      type: object
+      required:
+        - normalizedKey
+        - requests
+        - assets
+        - totals
+      properties:
+        normalizedKey:
+          type: string
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/EpisodeAssetGenerationRequest'
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageAssetRecord'
+        totals:
+          type: object
+          required: [total, success, failure]
+          properties:
+            total:
+              type: integer
+              minimum: 0
+            success:
+              type: integer
+              minimum: 0
+            failure:
+              type: integer
+              minimum: 0
+
+    EpisodeAssetGenerationRequest:
+      type: object
+      required:
+        - requestId
+        - episodePackageId
+        - normalizedKey
+        - status
+        - requestedAt
+        - succeededCount
+        - failedCount
+      properties:
+        requestId:
+          type: string
+        episodePackageId:
+          type: string
+        normalizedKey:
+          type: string
+        status:
+          type: string
+          enum: [queued, in-progress, success, partial-success, failure]
+        requestedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        succeededCount:
+          type: integer
+          minimum: 0
+        failedCount:
+          type: integer
+          minimum: 0
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
