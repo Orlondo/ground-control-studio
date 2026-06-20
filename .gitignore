@@ -40,6 +40,10 @@ yarn-error.log*
 # local runtime state
 .specify/runtime/
 
+# generated asset outputs
+public/generated-assets/*
+!public/generated-assets/.gitkeep
+
 # vercel
 .vercel
 
