@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "specify": "uvx --from git+https://github.com/github/spec-kit.git@v0.9.4 specify",
+    "specify:init": "npm run specify -- init . --integration copilot"
   },
   "dependencies": {
     "next": "16.2.9",
