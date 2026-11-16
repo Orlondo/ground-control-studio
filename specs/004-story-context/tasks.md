@@ -14,7 +14,7 @@ description: "Task list for Shared Story Context for Episode Images"
 
 ## Phase 1: Setup
 
-- [X] T001 Add `vitest` dev dependency, `vitest.config.ts` with the `@/` alias, and an `npm test` script.
+- [X] T001 Add `vitest` dev dependency, `vitest.config.mts` with the `@/` alias, and an `npm test` script.
 - [X] T002 [P] Update `specs/001-episode-foundation/spec.md` to drop the same-brief-same-package guarantee.
 
 ## Phase 2: Foundational

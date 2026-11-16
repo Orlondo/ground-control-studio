@@ -53,7 +53,7 @@ lib/assets/                prompt-builder.ts (new), generation-service.ts, contr
 app/api/episodes/generate/route.ts (new)
 app/page.tsx
 tests/                     Vitest unit tests (new)
-vitest.config.ts (new), package.json (test script, vitest)
+vitest.config.mts (new), package.json (test script, vitest)
 ```
 
 ## Complexity Tracking

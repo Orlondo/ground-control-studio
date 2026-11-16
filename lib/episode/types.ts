@@ -17,8 +17,23 @@ export interface ClipIdea {
 	idea: string;
 }
 
+export interface StoryCharacter {
+	name: string;
+	appearance: string;
+}
+
+export interface StoryContext {
+	characters: StoryCharacter[];
+	setting: string;
+	era: string;
+	lightingAndPalette: string;
+	props: string[];
+	artStyle: string;
+}
+
 export interface EpisodePackage {
 	brief: EpisodeBrief;
+	storyContext: StoryContext;
 	title: string;
 	script: string;
 	scenePrompts: ScenePrompt[];
