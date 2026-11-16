@@ -5,34 +5,17 @@ import type {
 	EpisodeGenerationResult,
 	EpisodePackage,
 	ScenePrompt,
+	StoryBeat,
 	StoryContext,
 } from "./types";
 import { normalizeEpisodeField, titleCase } from "./normalization";
 import { toIncompleteResult, validateEpisodeBrief } from "./validation";
 import { generateStoryContext, type StoryContextLLM } from "./story-context";
+import { generateStoryBeats, type StoryBeatsLLM } from "./story-beats";
 
-const GENERATOR_VERSION = "2.0.0";
+export type EpisodeLLM = StoryContextLLM & StoryBeatsLLM;
 
-const OPENING_BEATS = [
-	"a turning point emerges",
-	"the first tension arrives",
-	"an old pattern breaks",
-	"the scene shifts into focus",
-];
-
-const MIDDLE_BEATS = [
-	"the central mystery deepens",
-	"a detail reframes the episode",
-	"the atmosphere grows more specific",
-	"the cast of ideas becomes more defined",
-];
-
-const CLOSING_BEATS = [
-	"the episode lands on a decisive image",
-	"the final beat keeps the mood unresolved",
-	"the story closes with a strong visual echo",
-	"the concept ends with a memorable emotional note",
-];
+const GENERATOR_VERSION = "3.0.0";
 
 const TAG_BANK = [
 	"episode-planning",
@@ -96,51 +79,29 @@ function buildTitle(brief: EpisodeBrief): string {
 	}
 }
 
-function buildScript(brief: EpisodeBrief): string {
-	const seed = stableHash(brief.normalizedKey);
-	const opening = pickStable(OPENING_BEATS, seed, 0);
-	const middle = pickStable(MIDDLE_BEATS, seed, 1);
-	const closing = pickStable(CLOSING_BEATS, seed, 2);
-
-	return enforceScopeSafeText([
-		`Opening: In ${titleCase(brief.location)}, the ${brief.atmosphere} mood of the ${titleCase(brief.era)} era sets the stage while ${opening}.`,
-		`Middle: The episode keeps its focus on ${normalizeEpisodeField(brief.location)} as ${middle}, linking every scene back to the original brief.`,
-		`Close: The final movement leaves the audience with ${closing}, preserving a clear review-friendly episode concept.`,
-	].join("\n\n"));
+function buildScript(beats: StoryBeat[]): string {
+	return beats.map((beat) => `${beat.order}. ${beat.summary}`).join("\n\n");
 }
 
-function buildScenePrompts(brief: EpisodeBrief): ScenePrompt[] {
-	const seed = stableHash(brief.normalizedKey);
-	const location = titleCase(brief.location);
-	const era = titleCase(brief.era);
-	const atmosphere = titleCase(brief.atmosphere);
-
+function buildScenePrompt(beat: StoryBeat, totalBeats: number): string {
 	return [
-		{
-			order: 1,
-			prompt: enforceScopeSafeText(
-				`Introduce ${location} in a ${atmosphere.toLowerCase()} ${era.toLowerCase()} tone, emphasizing the core setting and visual mood.`,
-			),
-		},
-		{
-			order: 2,
-			prompt: enforceScopeSafeText(
-				`Shift deeper into the story at ${location} as the ${brief.atmosphere.toLowerCase()} atmosphere reveals the central tension.`,
-			),
-		},
-		{
-			order: 3,
-			prompt: enforceScopeSafeText(
-				`Resolve the episode with a decisive image that reflects ${pickStable(CLOSING_BEATS, seed, 1)}.`,
-			),
-		},
-	];
+		`Panel ${beat.order} of ${totalBeats}.`,
+		`Emotion: ${beat.emotion} — convey it through composition, lighting, framing and character expression.`,
+		`Action: ${beat.action}`,
+		`Composition: ${beat.composition}`,
+		`Framing: ${beat.framing}`,
+		`Lighting: ${beat.lighting}`,
+		`Expression: ${beat.expression}`,
+	].join("\n");
 }
 
-function buildThumbnailPrompt(brief: EpisodeBrief): string {
-	return enforceScopeSafeText(
-		`Cinematic thumbnail planning prompt for ${titleCase(brief.location)} during the ${titleCase(brief.era)} era, with a ${titleCase(brief.atmosphere)} atmosphere, bold composition, and clear focal contrast.`,
-	);
+function buildScenePrompts(beats: StoryBeat[]): ScenePrompt[] {
+	return beats.map((beat) => ({ order: beat.order, prompt: buildScenePrompt(beat, beats.length) }));
+}
+
+function buildThumbnailPrompt(brief: EpisodeBrief, storyContext: StoryContext): string {
+	const cast = storyContext.characters.map((character) => character.name).join(" and ");
+	return `Episode thumbnail that conveys the overall ${brief.atmosphere.toLowerCase()} tone: ${cast} in ${storyContext.setting}, bold composition, clear focal contrast, expressive faces and lighting.`;
 }
 
 function buildClipIdeas(brief: EpisodeBrief): ClipIdea[] {
@@ -185,14 +146,16 @@ function buildTags(brief: EpisodeBrief): string[] {
 export function buildEpisodePackage(
 	brief: EpisodeBrief,
 	storyContext: StoryContext,
+	beats: StoryBeat[],
 ): EpisodePackage {
 	return {
 		brief,
 		storyContext,
 		title: buildTitle(brief),
-		script: buildScript(brief),
-		scenePrompts: buildScenePrompts(brief),
-		thumbnailPrompt: buildThumbnailPrompt(brief),
+		beats,
+		script: buildScript(beats),
+		scenePrompts: buildScenePrompts(beats),
+		thumbnailPrompt: buildThumbnailPrompt(brief, storyContext),
 		shortFormClipIdeas: buildClipIdeas(brief),
 		description: buildDescription(brief),
 		tags: buildTags(brief),
@@ -202,7 +165,7 @@ export function buildEpisodePackage(
 
 export async function generateEpisodePackage(
 	input: EpisodeBriefInput,
-	llm: StoryContextLLM,
+	llm: EpisodeLLM,
 ): Promise<EpisodeGenerationResult> {
 	const validated = validateEpisodeBrief(input);
 
@@ -211,9 +174,10 @@ export async function generateEpisodePackage(
 	}
 
 	const storyContext = await generateStoryContext(validated.brief, llm);
+	const beats = await generateStoryBeats(validated.brief, storyContext, llm);
 
 	return {
 		status: "complete",
-		package: buildEpisodePackage(validated.brief, storyContext),
+		package: buildEpisodePackage(validated.brief, storyContext, beats),
 	};
 }

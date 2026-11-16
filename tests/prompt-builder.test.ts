@@ -4,7 +4,7 @@ import { validateGenerateImageAssetsRequest } from "@/lib/assets/contracts";
 import { buildTargets } from "@/lib/assets/generation-service";
 import { formatStoryContext, withStoryContext } from "@/lib/assets/prompt-builder";
 import { buildEpisodePackage } from "@/lib/episode/generator";
-import { brief, storyContext } from "./fixtures";
+import { beats, brief, storyContext } from "./fixtures";
 
 describe("formatStoryContext", () => {
 	it("includes every story context field", () => {
@@ -31,12 +31,12 @@ describe("withStoryContext", () => {
 });
 
 describe("buildTargets", () => {
-	const episodePackage = buildEpisodePackage(brief, storyContext);
+	const episodePackage = buildEpisodePackage(brief, storyContext, beats);
 	const request: ValidatedGenerateImageAssetsRequest = {
 		episodePackageId: "pkg-1",
 		normalizedKey: brief.normalizedKey,
 		includeThumbnail: true,
-		sceneIndexes: [0, 1, 2],
+		sceneIndexes: beats.map((_, index) => index),
 		package: episodePackage,
 	};
 
@@ -44,12 +44,10 @@ describe("buildTargets", () => {
 		const targets = buildTargets(request);
 		const block = formatStoryContext(storyContext);
 
-		expect(targets).toHaveLength(4);
+		expect(targets).toHaveLength(beats.length + 1);
 		expect(targets.map((target) => target.assetType)).toEqual([
 			"thumbnail",
-			"scene",
-			"scene",
-			"scene",
+			...beats.map(() => "scene"),
 		]);
 		for (const target of targets) {
 			expect(target.promptText.startsWith(block)).toBe(true);
@@ -63,7 +61,7 @@ describe("buildTargets", () => {
 
 describe("validateGenerateImageAssetsRequest", () => {
 	it("rejects packages without a valid story context", () => {
-		const { storyContext: _omitted, ...withoutContext } = buildEpisodePackage(brief, storyContext);
+		const { storyContext: _omitted, ...withoutContext } = buildEpisodePackage(brief, storyContext, beats);
 		void _omitted;
 
 		const result = validateGenerateImageAssetsRequest(
@@ -79,7 +77,7 @@ describe("validateGenerateImageAssetsRequest", () => {
 
 	it("accepts packages with a valid story context", () => {
 		const result = validateGenerateImageAssetsRequest(
-			{ episodePackageId: "pkg-1", package: buildEpisodePackage(brief, storyContext) },
+			{ episodePackageId: "pkg-1", package: buildEpisodePackage(brief, storyContext, beats) },
 			brief.normalizedKey,
 		);
 

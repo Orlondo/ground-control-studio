@@ -16,6 +16,9 @@ export function formatStoryContext(context: StoryContext): string {
 	].join("\n");
 }
 
+export const NO_TEXT_RULE =
+	"Do not render any text, captions, speech bubbles, signage, logos or lettering anywhere in the image; tell the story only through the picture.";
+
 export function withStoryContext(context: StoryContext, prompt: string): string {
-	return `${formatStoryContext(context)}\n\nImage: ${prompt}`;
+	return `${formatStoryContext(context)}\n${NO_TEXT_RULE}\n\nImage: ${prompt}`;
 }

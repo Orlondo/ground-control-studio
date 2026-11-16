@@ -37,7 +37,7 @@ const STORY_CONTEXT_SCHEMA = {
 	},
 } as const;
 
-function describeOpenAIError(error: unknown): string {
+export function describeOpenAIError(error: unknown): string {
 	if (error instanceof OpenAI.APIError) {
 		if (error.status === 401) return "OpenAI authentication failed — check OPENAI_API_KEY.";
 		if (error.status === 429) return "OpenAI rate limit reached.";

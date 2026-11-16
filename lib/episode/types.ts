@@ -22,6 +22,17 @@ export interface StoryCharacter {
 	appearance: string;
 }
 
+export interface StoryBeat {
+	order: number;
+	summary: string;
+	emotion: string;
+	action: string;
+	composition: string;
+	framing: string;
+	lighting: string;
+	expression: string;
+}
+
 export interface StoryContext {
 	characters: StoryCharacter[];
 	setting: string;
@@ -35,6 +46,7 @@ export interface EpisodePackage {
 	brief: EpisodeBrief;
 	storyContext: StoryContext;
 	title: string;
+	beats: StoryBeat[];
 	script: string;
 	scenePrompts: ScenePrompt[];
 	thumbnailPrompt: string;

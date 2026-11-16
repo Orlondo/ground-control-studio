@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { EpisodeGenerationResult, StoryContext } from "@/lib/episode/types";
+import type { EpisodeGenerationResult, StoryBeat, StoryContext } from "@/lib/episode/types";
 import type {
 	AssetGenerationResult,
 	ImageAssetRecord,
@@ -171,6 +171,21 @@ function formatStoryContextPanel(context: StoryContext): ReactNode {
 	);
 }
 
+function formatBeatsPanel(beats: StoryBeat[]): ReactNode {
+	return (
+		<ol className="space-y-2 text-sm text-slate-200/90">
+			{beats.map((beat) => (
+				<li key={beat.order} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+					<b>
+						{beat.order}. {beat.emotion}
+					</b>{" "}
+					— {beat.action}
+				</li>
+			))}
+		</ol>
+	);
+}
+
 function formatResult(result: EpisodeGenerationResult): ReactNode {
 	if (result.status === "needs-input") {
 		return (
@@ -203,6 +218,10 @@ function formatResult(result: EpisodeGenerationResult): ReactNode {
 
 			<ResultPanel title="Story Context (shared by every image)">
 				{formatStoryContextPanel(episodePackage.storyContext)}
+			</ResultPanel>
+
+			<ResultPanel title="Story Beats (emotion and action per panel)">
+				{formatBeatsPanel(episodePackage.beats)}
 			</ResultPanel>
 
 			<div className="grid gap-4 md:grid-cols-2">

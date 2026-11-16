@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import type { ApiErrorResponse } from "@/lib/assets/contracts";
-import { generateEpisodePackage } from "@/lib/episode/generator";
+import { generateEpisodePackage, type EpisodeLLM } from "@/lib/episode/generator";
+import { OpenAIStoryBeatsClient } from "@/lib/episode/openai-story-beats-client";
 import { OpenAIStoryContextClient } from "@/lib/episode/openai-story-context-client";
-import { StoryContextGenerationError, type StoryContextLLM } from "@/lib/episode/story-context";
+import { StoryBeatsGenerationError } from "@/lib/episode/story-beats";
+import { StoryContextGenerationError } from "@/lib/episode/story-context";
 import type { EpisodeBriefInput } from "@/lib/episode/types";
 
 function jsonError(status: number, error: string, message: string) {
@@ -36,8 +38,10 @@ export async function POST(request: Request) {
 		return jsonError(400, "VALIDATION_ERROR", "Request body must be an object.");
 	}
 
-	const llm: StoryContextLLM = {
+	const llm: EpisodeLLM = {
 		completeStoryContext: (brief) => new OpenAIStoryContextClient().completeStoryContext(brief),
+		completeStoryBeats: (beatsRequest) => new OpenAIStoryBeatsClient().completeStoryBeats(beatsRequest),
+		judgeToneFit: (toneRequest) => new OpenAIStoryBeatsClient().judgeToneFit(toneRequest),
 	};
 
 	try {
@@ -49,6 +53,9 @@ export async function POST(request: Request) {
 	} catch (error) {
 		if (error instanceof StoryContextGenerationError) {
 			return jsonError(502, "STORY_CONTEXT_FAILED", error.message);
+		}
+		if (error instanceof StoryBeatsGenerationError) {
+			return jsonError(502, "STORY_BEATS_FAILED", error.message);
 		}
 		return jsonError(500, "INTERNAL_ERROR", "Unable to generate episode package.");
 	}
