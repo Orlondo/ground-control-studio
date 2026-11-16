@@ -63,7 +63,7 @@ As an operator, I can quickly identify that a generation failure is caused by a 
 - `OPENAI_API_KEY` is set but expired or revoked mid-session.
 - A prompt is valid but OpenAI applies content filtering and returns a rejection.
 - OpenAI returns an unexpected response shape (missing image data field).
-- The primary model (`gpt-image-2`) is unavailable; the system must attempt the fallback model (`gpt-image-1`) before recording a failure.
+- The image model (`gpt-image-2`) rejects the request or is unavailable; the system records a failure with an accurate error code (no fallback model — `gpt-image-1` has been retired).
 - Rate limiting causes some prompts in a batch to fail while others succeed (partial-success must be preserved).
 - Network timeout occurs during image download/retrieval after the generation API call succeeds.
 - A generation request is submitted with a very large number of scene prompts; throughput and ordering must remain deterministic.
@@ -75,10 +75,11 @@ As an operator, I can quickly identify that a generation failure is caused by a 
 
 - **FR-001**: The system MUST replace the local deterministic SVG provider with an OpenAI-backed image generation implementation behind the existing `ImageProviderAdapter` boundary, without altering the adapter interface contract.
 - **FR-002**: The system MUST use `gpt-image-2` as the primary image generation model for all still-image prompts.
-- **FR-003**: The system MUST automatically retry with `gpt-image-1` as the fallback model when the primary model call fails, before recording a generation failure for that prompt.
+- **FR-003**: The system MUST NOT fall back to another image model when a `gpt-image-2` call fails; it records a generation failure for that prompt. *(Amended: the original `gpt-image-1` fallback was removed because that model has been retired.)*
 - **FR-004**: The system MUST read `OPENAI_API_KEY` from the process environment and MUST reject configuration at initialization time if the key is absent.
 - **FR-005**: The system MUST NOT hard-code or embed API keys, and secrets MUST be supplied exclusively via environment configuration for this repository.
-- **FR-006**: The system MUST map OpenAI provider errors (authentication failures, content policy rejections, rate limits, network errors) to internal error codes defined by the existing error schema, without leaking raw provider error messages into asset records or API responses.
+- **FR-006**: The system MUST map OpenAI provider errors to internal error codes — `AUTH_FAILURE` only for genuine authentication errors (HTTP 401 or `invalid_api_key`), `PERMISSION_DENIED` (403), `PROMPT_REJECTED` (content policy / moderation), `INVALID_REQUEST` (other 400/404/422), `RATE_LIMITED` (429 after retries), `PROVIDER_ERROR` (5xx, network, empty response) — without leaking raw provider error messages into asset records or API responses.
+- **FR-006a**: The system MUST log the raw OpenAI error (HTTP status, model, and response body) on the server for every failed call, without logging the API key.
 - **FR-007**: The system MUST preserve partial-success behavior: when one or more prompt generations fail, successful assets MUST remain available and the request-level status MUST correctly reflect partial-success.
 - **FR-008**: The system MUST store generated image bytes using the existing file-backed storage adapter, producing asset records with the same structure as the previous provider (viewable reference, downloadable reference, traceability fields).
 - **FR-009**: The system MUST preserve per-asset traceability from each generated image to the source normalizedKey, asset type (thumbnail or scene), and source prompt text.
@@ -91,7 +92,7 @@ As an operator, I can quickly identify that a generation failure is caused by a 
 - **ProviderGenerationRequest**: Existing request structure passed to the adapter (normalizedKey, assetType, sceneIndex, promptText). Unchanged.
 - **ProviderGenerationResult**: Existing discriminated union result type (ok/failure). The new provider MUST produce results conforming to this type; the `mimeType` and `extension` fields will reflect the actual image format returned by OpenAI rather than SVG.
 - **OPENAI_API_KEY**: Environment variable required for the new provider. Must be present at initialization; absence is a hard startup failure for the provider.
-- **Primary Model / Fallback Model**: `gpt-image-2` (primary) and `gpt-image-1` (fallback). Model selection is internal to the provider implementation and not exposed through the adapter interface.
+- **Image Model**: `gpt-image-2` only. Model selection is internal to the provider implementation and not exposed through the adapter interface.
 
 ## Success Criteria *(mandatory)*
 
@@ -102,14 +103,14 @@ As an operator, I can quickly identify that a generation failure is caused by a 
 - **SC-003**: All asset records produced by the new provider are retrievable by normalizedKey using the existing retrieval endpoint with no changes to response structure.
 - **SC-004**: A missing or invalid `OPENAI_API_KEY` produces a distinguishable, operator-readable configuration error within one request cycle — not a silent failure or generic crash.
 - **SC-005**: Provider errors are mapped to internal error codes in every failure scenario; zero raw OpenAI error messages surface in asset records or API responses.
-- **SC-006**: The fallback from `gpt-image-2` to `gpt-image-1` is exercised automatically without operator intervention when the primary model fails.
+- **SC-006**: Only genuine authentication errors are reported as `AUTH_FAILURE`; every other OpenAI error maps to its own code and its raw body appears in the server log.
 
 ## Assumptions
 
 - The existing `ImageProviderAdapter` interface and `ProviderGenerationResult` type are stable and will not be changed as part of this feature; the new implementation must conform to them as-is.
 - The existing file-backed storage adapter is capable of storing any binary image format returned by OpenAI (e.g., PNG); no storage changes are required.
 - `OPENAI_API_KEY` is the only credential required to call the OpenAI Images API for this feature; no organization ID or project key is assumed to be needed.
-- The interior-image-factory repository's approach to model selection (primary → fallback) and error handling is the reference implementation; the specific API client library or HTTP mechanism chosen for this repo must integrate with the existing adapter pattern rather than being copied verbatim.
-- Concurrency or rate-limit backoff strategy beyond primary/fallback model retry is out of scope for this feature; basic retry on the fallback model is sufficient.
+- The interior-image-factory repository's approach to error handling is the reference implementation; the specific API client library or HTTP mechanism chosen for this repo must integrate with the existing adapter pattern rather than being copied verbatim.
+- Concurrency strategy beyond per-prompt 429 retries with exponential back-off is out of scope for this feature.
 - The OpenAI Images API is available over standard HTTPS; no proxy or private endpoint configuration is required.
 - This feature does not add or change any public-facing API endpoints; all changes are internal to the provider layer.
