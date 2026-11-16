@@ -40,7 +40,7 @@ POST /api/episodes/generate   # body: { location, era, atmosphere }
 
 - Runs on the server. Validates the brief, generates a StoryContext with OpenAI, then builds the EpisodePackage.
 - Requires `OPENAI_API_KEY`. The model defaults to `gpt-4.1-mini` and can be overridden with `OPENAI_STORY_MODEL`.
-- Returns `400` with `status: "needs-input"` for incomplete briefs, and `502` with `error: "STORY_CONTEXT_FAILED"` if the key is missing or the LLM call fails or returns invalid output. There is no fallback context.
+- Returns `400` with `status: "needs-input"` for incomplete briefs, and `502` with `error: "STORY_CONTEXT_FAILED"` if the key is missing or the LLM call fails or returns invalid output. After the story context, the LLM writes 4–6 story beats (each with its own emotion within the brief's atmosphere/tone, plus action, composition, framing, lighting and expression); a separate `gpt-4.1-mini` call judges tone fit. Invalid beats or tone clashes are retried once, then fail with `502` `error: "STORY_BEATS_FAILED"`. The script and one scene prompt per beat are built from the same beat list, and every image prompt forbids text, captions and lettering. There is no fallback context.
 
 ## Phase 2 Image Asset APIs
 
