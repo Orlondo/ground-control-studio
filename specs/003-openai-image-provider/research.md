@@ -6,6 +6,8 @@ All NEEDS CLARIFICATION items from Technical Context are resolved below.
 
 ---
 
+> **Amended (004 follow-up):** `response_format` is no longer sent (GPT image models reject it), the `gpt-image-1` fallback was removed (model retired), and error codes now follow FR-006 in `spec.md`: `AUTH_FAILURE`, `PERMISSION_DENIED`, `PROMPT_REJECTED`, `INVALID_REQUEST`, `RATE_LIMITED`, `PROVIDER_ERROR`. Sections below that say otherwise are superseded.
+
 ## 1. OpenAI Images API — `gpt-image-2` vs `gpt-image-1`
 
 **Decision**: Use `openai` npm SDK, calling `client.images.generate()` with `response_format: "b64_json"`.

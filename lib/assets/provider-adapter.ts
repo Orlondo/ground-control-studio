@@ -66,30 +66,49 @@ function buildSvg(request: ProviderGenerationRequest): string {
 </svg>`;
 }
 
-const PRIMARY_MODEL = "gpt-image-2";
-const FALLBACK_MODEL = "gpt-image-1";
+const IMAGE_MODEL = "gpt-image-2";
 const MAX_RETRIES = 5;
 const MAX_RETRY_DELAY_MS = 30_000;
 
-type OpenAIErrorBody = { error?: { message?: string; code?: string; type?: string } };
+export type OpenAIErrorBody = { error?: { message?: string; code?: string | null; type?: string; param?: string | null } };
 
-function mapOpenAIError(status: number, body: OpenAIErrorBody): ProviderGenerationResult {
+type ProviderFailure = Extract<ProviderGenerationResult, { ok: false }>;
+
+const PROMPT_REJECTED_CODES = new Set(["content_policy_violation", "moderation_blocked"]);
+
+function failure(errorCode: string, errorReason: string): ProviderFailure {
+	return { ok: false, errorCode, errorReason };
+}
+
+export function mapOpenAIError(status: number, body: OpenAIErrorBody): ProviderFailure {
 	const code = body.error?.code ?? "";
 	const type = body.error?.type ?? "";
 
-	if (status === 401 || code === "invalid_api_key" || type === "invalid_request_error") {
-		return { ok: false, errorCode: "AUTH_FAILURE", errorReason: "OpenAI authentication failed — check OPENAI_API_KEY." };
+	if (status === 401 || code === "invalid_api_key") {
+		return failure("AUTH_FAILURE", "OpenAI authentication failed — check OPENAI_API_KEY.");
 	}
 
-	if (code === "content_policy_violation" || type === "image_generation_user_error") {
-		return { ok: false, errorCode: "PROMPT_REJECTED", errorReason: "Prompt rejected by OpenAI content policy." };
+	if (status === 403) {
+		return failure("PERMISSION_DENIED", "OpenAI denied access to the image model — check the API key's project and organization permissions.");
+	}
+
+	if (PROMPT_REJECTED_CODES.has(code) || type === "image_generation_user_error") {
+		return failure("PROMPT_REJECTED", "Prompt rejected by OpenAI content policy.");
 	}
 
 	if (status === 429) {
-		return { ok: false, errorCode: "RATE_LIMITED", errorReason: "OpenAI rate limit reached." };
+		return failure("RATE_LIMITED", "OpenAI rate limit reached.");
 	}
 
-	return { ok: false, errorCode: "PROVIDER_ERROR", errorReason: "Image generation failed." };
+	if (status === 400 || status === 404 || status === 422) {
+		return failure("INVALID_REQUEST", "OpenAI rejected the image request as invalid — see server logs for details.");
+	}
+
+	return failure("PROVIDER_ERROR", `Image generation failed (HTTP ${status}).`);
+}
+
+function logOpenAIError(model: string, status: number, rawBody: string): void {
+	console.error(`[OpenAIImageProvider] ${model} request failed with HTTP ${status}: ${rawBody}`);
 }
 
 function isRateLimitStatus(status: number): boolean {
@@ -112,27 +131,37 @@ async function callOpenAI(
 	apiKey: string,
 	model: string,
 	prompt: string,
-): Promise<{ ok: true; bytes: Buffer } | ProviderGenerationResult & { ok: false }> {
+): Promise<{ ok: true; bytes: Buffer } | ProviderFailure> {
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-		const response = await fetch("https://api.openai.com/v1/images/generations", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${apiKey}`,
-			},
-			body: JSON.stringify({ model, prompt, response_format: "b64_json", n: 1 }),
-		});
-
-		const text = await response.text();
+		let response: Response;
+		let text: string;
+		try {
+			// GPT image models always return base64 and reject `response_format`.
+			response = await fetch("https://api.openai.com/v1/images/generations", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${apiKey}`,
+				},
+				body: JSON.stringify({ model, prompt, n: 1 }),
+			});
+			text = await response.text();
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error);
+			console.error(`[OpenAIImageProvider] ${model} request could not reach OpenAI: ${detail}`);
+			return failure("PROVIDER_ERROR", "Could not reach OpenAI.");
+		}
 
 		if (!response.ok) {
-			let body: OpenAIErrorBody = {};
-			try { body = JSON.parse(text) as OpenAIErrorBody; } catch { /* ignore */ }
+			logOpenAIError(model, response.status, text);
 
 			if (isRateLimitStatus(response.status) && attempt < MAX_RETRIES) {
 				await sleep(retryDelayMs(attempt));
 				continue;
 			}
+
+			let body: OpenAIErrorBody = {};
+			try { body = JSON.parse(text) as OpenAIErrorBody; } catch { /* ignore */ }
 
 			return mapOpenAIError(response.status, body);
 		}
@@ -142,13 +171,14 @@ async function callOpenAI(
 
 		const b64 = parsed.data?.[0]?.b64_json;
 		if (!b64) {
-			return { ok: false, errorCode: "PROVIDER_ERROR", errorReason: "Empty image response from OpenAI." };
+			console.error(`[OpenAIImageProvider] ${model} returned no image data: ${text.slice(0, 500)}`);
+			return failure("PROVIDER_ERROR", "Empty image response from OpenAI.");
 		}
 
 		return { ok: true, bytes: Buffer.from(b64, "base64") };
 	}
 
-	return { ok: false, errorCode: "RATE_LIMITED", errorReason: "OpenAI rate limit reached after retries." };
+	return failure("RATE_LIMITED", "OpenAI rate limit reached after retries.");
 }
 
 export class OpenAIImageProvider implements ImageProviderAdapter {
@@ -165,22 +195,13 @@ export class OpenAIImageProvider implements ImageProviderAdapter {
 	async generateImage(
 		request: ProviderGenerationRequest,
 	): Promise<ProviderGenerationResult> {
-		const primary = await callOpenAI(this.apiKey, PRIMARY_MODEL, request.promptText);
+		const result = await callOpenAI(this.apiKey, IMAGE_MODEL, request.promptText);
 
-		if (primary.ok) {
-			return { ok: true, bytes: primary.bytes, mimeType: "image/png", extension: "png" };
+		if (!result.ok) {
+			return result;
 		}
 
-		// Retry with fallback model on model/size errors only
-		if (primary.errorCode === "PROVIDER_ERROR") {
-			const fallback = await callOpenAI(this.apiKey, FALLBACK_MODEL, request.promptText);
-			if (fallback.ok) {
-				return { ok: true, bytes: fallback.bytes, mimeType: "image/png", extension: "png" };
-			}
-			return fallback;
-		}
-
-		return primary;
+		return { ok: true, bytes: result.bytes, mimeType: "image/png", extension: "png" };
 	}
 }
 
