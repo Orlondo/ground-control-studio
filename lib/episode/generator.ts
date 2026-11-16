@@ -5,11 +5,13 @@ import type {
 	EpisodeGenerationResult,
 	EpisodePackage,
 	ScenePrompt,
+	StoryContext,
 } from "./types";
 import { normalizeEpisodeField, titleCase } from "./normalization";
 import { toIncompleteResult, validateEpisodeBrief } from "./validation";
+import { generateStoryContext, type StoryContextLLM } from "./story-context";
 
-const GENERATOR_VERSION = "1.0.0";
+const GENERATOR_VERSION = "2.0.0";
 
 const OPENING_BEATS = [
 	"a turning point emerges",
@@ -180,19 +182,13 @@ function buildTags(brief: EpisodeBrief): string[] {
 	return Array.from(new Set(derived));
 }
 
-export function generateEpisodePackage(
-	input: EpisodeBriefInput,
-): EpisodeGenerationResult {
-	const validated = validateEpisodeBrief(input);
-
-	if (!validated.ok) {
-		return toIncompleteResult(validated.missingFields, validated.message);
-	}
-
-	const brief = validated.brief;
-
-	const episodePackage: EpisodePackage = {
+export function buildEpisodePackage(
+	brief: EpisodeBrief,
+	storyContext: StoryContext,
+): EpisodePackage {
+	return {
 		brief,
+		storyContext,
 		title: buildTitle(brief),
 		script: buildScript(brief),
 		scenePrompts: buildScenePrompts(brief),
@@ -202,9 +198,22 @@ export function generateEpisodePackage(
 		tags: buildTags(brief),
 		generatorVersion: GENERATOR_VERSION,
 	};
+}
+
+export async function generateEpisodePackage(
+	input: EpisodeBriefInput,
+	llm: StoryContextLLM,
+): Promise<EpisodeGenerationResult> {
+	const validated = validateEpisodeBrief(input);
+
+	if (!validated.ok) {
+		return toIncompleteResult(validated.missingFields, validated.message);
+	}
+
+	const storyContext = await generateStoryContext(validated.brief, llm);
 
 	return {
 		status: "complete",
-		package: episodePackage,
+		package: buildEpisodePackage(validated.brief, storyContext),
 	};
 }

@@ -1,4 +1,5 @@
 import type { EpisodePackage } from "@/lib/episode/types";
+import { validateStoryContext } from "@/lib/episode/story-context";
 
 export type RequestLifecycleStatus =
 	| "queued"
@@ -182,6 +183,13 @@ export function validateGenerateImageAssetsRequest(
 		});
 	}
 
+	const storyContext = validateStoryContext(episodePackage.storyContext);
+	if (!storyContext.ok) {
+		for (const message of storyContext.issues) {
+			issues.push({ field: "package.storyContext", message });
+		}
+	}
+
 	const scope = readObject(obj.assetScope);
 	const includeThumbnail = scope?.includeThumbnail === false ? false : true;
 	const sceneIndexes = readSceneIndexes(scope?.sceneIndexes, episodePackage.scenePrompts.length);
@@ -222,7 +230,9 @@ export function validateGenerateImageAssetsRequest(
 			normalizedKey: normalizedKeyFromPath,
 			includeThumbnail,
 			sceneIndexes,
-			package: episodePackage,
+			package: storyContext.ok
+				? { ...episodePackage, storyContext: storyContext.value }
+				: episodePackage,
 		},
 	};
 }

@@ -50,10 +50,10 @@ description: "Task list for OpenAI Image Provider Integration"
 
 - [X] T004 [US1] Implement `OpenAIImageProvider` class in `lib/assets/provider-adapter.ts`:
   - Constructor reads `process.env.OPENAI_API_KEY`; throws immediately if absent (hard startup failure per FR-004)
-  - `generateImage()` calls OpenAI Images API with `model: "gpt-image-2"`, `response_format: "b64_json"`
+  - `generateImage()` calls OpenAI Images API with `model: "gpt-image-2"` (no `response_format` — GPT image models reject it and always return base64)
   - Decodes the `b64_json` string to a `Buffer` and returns `{ ok: true, bytes, mimeType: "image/png", extension: "png" }`
-  - On primary model failure, retries once with `model: "gpt-image-1"` before recording a failure (FR-003)
-  - Maps OpenAI error types to internal error codes (auth → `AUTH_FAILURE`, content policy → `PROMPT_REJECTED`, rate limit → `RATE_LIMITED`, other → `PROVIDER_ERROR`) — no raw provider messages in results (FR-006)
+  - No fallback model; a failed call records a failure (FR-003, amended — `gpt-image-1` retired)
+  - Maps OpenAI errors to internal codes (401/`invalid_api_key` → `AUTH_FAILURE`, 403 → `PERMISSION_DENIED`, content policy → `PROMPT_REJECTED`, other 400/404/422 → `INVALID_REQUEST`, 429 → `RATE_LIMITED`, other → `PROVIDER_ERROR`) — no raw provider messages in results (FR-006); raw error logged on the server (FR-006a)
 
 - [X] T005 [US1] Wire provider selection into the singleton factory in `lib/assets/generation-service.ts`:
   - Import `OpenAIImageProvider` alongside `LocalDeterministicImageProvider`

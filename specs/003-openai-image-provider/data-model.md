@@ -6,6 +6,8 @@ This feature introduces no new persistent data models. All entities below are pr
 
 ---
 
+> **Amended (004 follow-up):** `response_format` is no longer sent (GPT image models reject it), the `gpt-image-1` fallback was removed (model retired), and error codes now follow FR-006 in `spec.md`: `AUTH_FAILURE`, `PERMISSION_DENIED`, `PROMPT_REJECTED`, `INVALID_REQUEST`, `RATE_LIMITED`, `PROVIDER_ERROR`. Sections below that say otherwise are superseded.
+
 ## Modified: `ProviderGenerationResult` (in `lib/assets/provider-adapter.ts`)
 
 Currently the success branch hard-codes SVG output:

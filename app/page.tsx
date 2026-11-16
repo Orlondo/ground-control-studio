@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { generateEpisodePackage } from "@/lib/episode/generator";
-import type { EpisodeGenerationResult } from "@/lib/episode/types";
+import type { EpisodeGenerationResult, StoryContext } from "@/lib/episode/types";
 import type {
 	AssetGenerationResult,
 	ImageAssetRecord,
@@ -140,6 +139,38 @@ function formatList(items: string[]): ReactNode {
 	);
 }
 
+function formatStoryContextPanel(context: StoryContext): ReactNode {
+	return (
+		<div className="space-y-2 text-sm text-slate-200/90">
+			<div>
+				<b>Characters:</b>
+				<ul className="mt-1 space-y-1">
+					{context.characters.map((character) => (
+						<li key={character.name}>
+							<b>{character.name}</b> — {character.appearance}
+						</li>
+					))}
+				</ul>
+			</div>
+			<p>
+				<b>Setting:</b> {context.setting}
+			</p>
+			<p>
+				<b>Era:</b> {context.era}
+			</p>
+			<p>
+				<b>Lighting and palette:</b> {context.lightingAndPalette}
+			</p>
+			<p>
+				<b>Props:</b> {context.props.join(", ")}
+			</p>
+			<p>
+				<b>Art style:</b> {context.artStyle}
+			</p>
+		</div>
+	);
+}
+
 function formatResult(result: EpisodeGenerationResult): ReactNode {
 	if (result.status === "needs-input") {
 		return (
@@ -169,6 +200,10 @@ function formatResult(result: EpisodeGenerationResult): ReactNode {
 					{episodePackage.description}
 				</p>
 			</div>
+
+			<ResultPanel title="Story Context (shared by every image)">
+				{formatStoryContextPanel(episodePackage.storyContext)}
+			</ResultPanel>
 
 			<div className="grid gap-4 md:grid-cols-2">
 				<ResultPanel title="Script">
@@ -235,16 +270,43 @@ export default function Home() {
 	const [isGeneratingAssets, setIsGeneratingAssets] = useState(false);
 	const [isRetrievingAssets, setIsRetrievingAssets] = useState(false);
 	const [assetError, setAssetError] = useState<string | null>(null);
+	const [isGeneratingEpisode, setIsGeneratingEpisode] = useState(false);
+	const [episodeError, setEpisodeError] = useState<string | null>(null);
 
 	const canSubmit =
 		form.location.trim() !== "" && form.era.trim() !== "" && form.atmosphere.trim() !== "";
 
-	function handleSubmit(event: FormEvent<HTMLFormElement>) {
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setAssetGenerationResult(null);
 		setRetrievalResult(null);
 		setAssetError(null);
-		setResult(generateEpisodePackage(form));
+		setEpisodeError(null);
+		setResult(null);
+		setIsGeneratingEpisode(true);
+
+		try {
+			const response = await fetch("/api/episodes/generate", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(form),
+			});
+			const data = (await response.json()) as EpisodeGenerationResult | { message?: string };
+
+			if ("status" in data && (data.status === "complete" || data.status === "needs-input")) {
+				setResult(data);
+				return;
+			}
+
+			const message = "message" in data ? data.message : undefined;
+			setEpisodeError(message ?? "Episode generation failed.");
+		} catch {
+			setEpisodeError("Episode generation failed.");
+		} finally {
+			setIsGeneratingEpisode(false);
+		}
 	}
 
 	async function handleGenerateAssets() {
@@ -404,10 +466,10 @@ export default function Home() {
 
 								<button
 									type="submit"
-									disabled={!canSubmit}
+									disabled={!canSubmit || isGeneratingEpisode}
 									className="inline-flex w-full items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
 								>
-									Generate Episode Package
+									{isGeneratingEpisode ? "Generating Story Context..." : "Generate Episode Package"}
 								</button>
 							</div>
 						</form>
@@ -421,11 +483,16 @@ export default function Home() {
 							<h2 className="mt-2 text-2xl font-semibold text-white">Package Review</h2>
 						</div>
 						<p className="max-w-md text-right text-sm leading-6 text-slate-300">
-							Phase 1 keeps deterministic package generation while Phase 2 adds scoped image assets only (thumbnail + scene images) with traceable records.
+							Each package gets an LLM-generated story context that is prepended to every image prompt (thumbnail + scene images) so the panels stay consistent.
 						</p>
 					</div>
 
 					<div className="mt-6">
+						{episodeError ? (
+							<p className="mb-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
+								{episodeError}
+							</p>
+						) : null}
 						{result ? (
 							formatResult(result)
 						) : (

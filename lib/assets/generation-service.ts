@@ -12,6 +12,7 @@ import {
 	OpenAIImageProvider,
 	type ImageProviderAdapter,
 } from "./provider-adapter";
+import { withStoryContext } from "./prompt-builder";
 import { FileAssetRepository, type AssetRepository } from "./repository";
 import { PublicFileStorageAdapter, type StorageAdapter } from "./storage-adapter";
 
@@ -22,22 +23,23 @@ export class AssetGenerationConflictError extends Error {
 	}
 }
 
-interface GenerationTarget {
+export interface GenerationTarget {
 	assetType: "thumbnail" | "scene";
 	sceneIndex?: number;
 	promptText: string;
 	promptRef: PromptReference;
 }
 
-function buildTargets(
+export function buildTargets(
 	request: ValidatedGenerateImageAssetsRequest,
 ): GenerationTarget[] {
+	const { storyContext } = request.package;
 	const targets: GenerationTarget[] = [];
 
 	if (request.includeThumbnail) {
 		targets.push({
 			assetType: "thumbnail",
-			promptText: request.package.thumbnailPrompt,
+			promptText: withStoryContext(storyContext, request.package.thumbnailPrompt),
 			promptRef: { kind: "thumbnailPrompt" },
 		});
 	}
@@ -51,7 +53,7 @@ function buildTargets(
 		targets.push({
 			assetType: "scene",
 			sceneIndex,
-			promptText: scene.prompt,
+			promptText: withStoryContext(storyContext, scene.prompt),
 			promptRef: { kind: "scenePrompt", index: sceneIndex },
 		});
 	}
